@@ -1,5 +1,6 @@
 # ============================================================
 # Browser Automation Studio — Dockerfile
+# M2: Added scrot (screenshot tool)
 # Base: Ubuntu 22.04 | Compatible with Hugging Face Spaces
 # Primary port: 7860 (FastAPI) | VNC port: 6080
 # ============================================================
@@ -26,6 +27,7 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     fonts-liberation fonts-dejavu-core \
     netcat-openbsd procps htop nano \
+    scrot \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Python 3.11 ───────────────────────────────────────────────
@@ -44,24 +46,23 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# ── Chromium — install real binary via Debian repo ───────────
-# Ubuntu 22.04's chromium-browser is a snap stub that doesn't
-# work inside Docker. Instead we add the Debian bullseye repo
-# which provides a real chromium binary at /usr/bin/chromium
+# ── Google Chrome (real binary, not Ubuntu snap stub) ─────────
+# Ubuntu 22.04's chromium-browser is a snap stub that fails in Docker.
+# Google Chrome stable provides a real binary at /usr/bin/google-chrome-stable
 RUN apt-get update && apt-get install -y \
     libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
     libcups2 libdrm2 libxkbcommon0 libxcomposite1 \
     libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 \
+    libcairo2 libpango-1.0-0 libgtk-3-0 libvulkan1 xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Debian bullseye repo for real chromium binary
-RUN echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
-    > /etc/apt/sources.list.d/google-chrome.list && \
-    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    apt-get update && apt-get install -y google-chrome-stable && \
+RUN wget -q -O /tmp/google-chrome.deb \
+    https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt-get install -y /tmp/google-chrome.deb && \
+    rm /tmp/google-chrome.deb && \
     rm -rf /var/lib/apt/lists/*
 
-# Create /usr/bin/chromium symlink pointing to google-chrome
+# Symlink so supervisord uses /usr/bin/chromium
 RUN ln -sf /usr/bin/google-chrome-stable /usr/bin/chromium
 
 # ── noVNC ─────────────────────────────────────────────────────
@@ -94,10 +95,6 @@ RUN chmod +x /app/scripts/start.sh
 
 EXPOSE 7860
 EXPOSE 6080
-
-# Uncomment for Hugging Face deployment:
-# RUN useradd -m -u 1000 appuser && chown -R appuser /app /data
-# USER 1000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:7860/health || exit 1

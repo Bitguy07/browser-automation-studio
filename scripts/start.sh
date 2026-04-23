@@ -42,7 +42,7 @@ check_binary() {
 }
 
 check_binary Xvfb
-check_binary chromium-browser
+check_binary chromium
 check_binary x11vnc
 check_binary websockify
 check_binary python3

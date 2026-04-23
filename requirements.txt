@@ -1,42 +1,43 @@
 # ============================================================
 # Browser Automation Studio — requirements.txt
-# Install: pip install -r requirements.txt
+# M2: Added websocket-client for Chrome DevTools Protocol
 # ============================================================
 
-# ── Web Framework ─────────────────────────────────────────────
+# Web Framework
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
-python-multipart>=0.0.9      # Form data parsing
-aiofiles>=23.2.1             # Async file operations
+python-multipart>=0.0.9
+aiofiles>=23.2.1
 
-# ── Authentication ────────────────────────────────────────────
-python-jose[cryptography]>=3.3.0   # JWT tokens
-passlib[bcrypt]>=1.7.4             # Password hashing
+# Authentication
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
 
-# ── Database ──────────────────────────────────────────────────
-sqlalchemy>=2.0.30           # ORM
-aiosqlite>=0.20.0            # Async SQLite driver
+# Database
+sqlalchemy>=2.0.30
+aiosqlite>=0.20.0
 
-# ── Browser Automation ────────────────────────────────────────
-selenium>=4.21.0             # Browser control
-webdriver-manager>=4.0.1     # Auto-manages chromedriver
+# Browser Automation
+selenium>=4.21.0
+webdriver-manager>=4.0.1
 
-# ── AI / LLM ─────────────────────────────────────────────────
-browser-use>=0.1.40          # AI browser agent (uses Selenium + LLM)
-groq>=0.8.0                  # Groq API client (Llama 70B)
-langchain>=0.2.3             # Required by browser-use
-langchain-groq>=0.1.6        # Groq LangChain integration
+# AI / LLM
+browser-use>=0.1.40
+groq>=0.8.0
+langchain>=0.2.3
+langchain-groq>=0.1.6
 
-# ── Telegram Bot ──────────────────────────────────────────────
-python-telegram-bot>=21.2    # Async Telegram bot (v20+)
+# Telegram Bot
+python-telegram-bot>=21.2
 
-# ── Utilities ─────────────────────────────────────────────────
-python-dotenv>=1.0.1         # Load .env files
-pydantic>=2.7.1              # Data validation (FastAPI uses this)
-pydantic-settings>=2.2.1     # Settings from env vars
-httpx>=0.27.0                # Async HTTP client
-Pillow>=10.3.0               # Image processing (screenshots)
-websockets>=12.0             # WebSocket support
+# Utilities
+python-dotenv>=1.0.1
+pydantic>=2.7.1
+pydantic-settings>=2.2.1
+httpx>=0.27.2
+Pillow>=10.3.0
+websockets>=12.0
+structlog>=24.1.0
 
-# ── Logging ───────────────────────────────────────────────────
-structlog>=24.1.0            # Structured logging
+# M2: Chrome DevTools Protocol screenshot support
+websocket-client>=1.7.0
