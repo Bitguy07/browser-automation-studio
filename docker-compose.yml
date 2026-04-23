@@ -1,0 +1,66 @@
+# ============================================================
+# Browser Automation Studio — docker-compose.yml
+# Local development launcher
+# Usage: docker-compose up --build
+# ============================================================
+
+version: '3.9'
+
+services:
+  automation-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: browser-automation-studio
+    
+    # Port mapping: host:container
+    ports:
+      - "7860:7860"   # FastAPI (primary, also serves React)
+      - "6080:6080"   # noVNC web viewer
+      - "5900:5900"   # Raw VNC (optional, for VNC client apps)
+    
+    # Load environment variables from .env file
+    env_file:
+      - .env
+    
+    # Persistent storage: map /data inside container to ./data on host
+    volumes:
+      - ./data:/data
+      # Hot-reload for development: mount source code directly
+      # Comment these out for production-like local testing
+      - ./backend:/app/backend
+      - ./frontend/src:/app/frontend/src
+    
+    # Keep container running even if it crashes
+    restart: unless-stopped
+    
+    # Shared memory size (Chrome needs this — default 64MB is too small)
+    shm_size: '2gb'
+    
+    # Environment overrides for local dev
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - DISPLAY=:99
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Resource limits (adjust based on your machine)
+    # Your machine: 7694MiB RAM — keeping limits reasonable
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+
+# Named volume for data persistence across rebuilds
+volumes:
+  data:
+    driver: local
