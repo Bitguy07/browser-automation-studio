@@ -1,6 +1,6 @@
 {
   "name": "browser-automation-studio-frontend",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "private": true,
   "dependencies": {
     "react": "^18.3.0",
@@ -16,7 +16,10 @@
   },
   "proxy": "http://localhost:7860",
   "eslintConfig": {
-    "extends": ["react-app"]
+    "extends": ["react-app"],
+    "rules": {
+      "no-unused-vars": "warn"
+    }
   },
   "browserslist": {
     "production": [">0.2%", "not dead", "not op_mini all"],
