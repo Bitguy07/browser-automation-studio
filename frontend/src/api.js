@@ -1,12 +1,12 @@
 // ============================================================
 // Browser Automation Studio — frontend/src/api.js
-// M4: All API calls to FastAPI backend
+// M5: Added resetBrowser()
 // ============================================================
 
 const BASE = window.location.origin;
 
-export const getToken = () => localStorage.getItem("bas_token");
-export const setToken = (t) => localStorage.setItem("bas_token", t);
+export const getToken  = () => localStorage.getItem("bas_token");
+export const setToken  = (t) => localStorage.setItem("bas_token", t);
 export const clearToken = () => localStorage.removeItem("bas_token");
 export const isLoggedIn = () => !!getToken();
 
@@ -16,7 +16,7 @@ const authHeaders = () => ({
 });
 
 async function apiFetch(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, options);
+  const res  = await fetch(`${BASE}${path}`, options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
   return data;
@@ -80,6 +80,10 @@ export async function getScreenshot() {
   return apiFetch("/api/browser/screenshot", { headers: authHeaders() });
 }
 
+export async function resetBrowser() {
+  return apiFetch("/api/browser/reset", { method: "POST", headers: authHeaders() });
+}
+
 export async function saveSession(name) {
   return apiFetch("/api/session/save", {
     method: "POST",
@@ -103,8 +107,8 @@ export async function getVncStatus() {
 export function createMonitorWS(onMessage, onClose) {
   const token = getToken();
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.host;
-  const ws = new WebSocket(`${proto}//${host}/api/ws/monitor?token=${token}`);
+  const host  = window.location.host;
+  const ws    = new WebSocket(`${proto}//${host}/api/ws/monitor?token=${token}`);
   ws.onmessage = (e) => {
     try { onMessage(JSON.parse(e.data)); } catch (_) {}
   };

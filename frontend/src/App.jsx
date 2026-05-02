@@ -32,8 +32,8 @@ const GLOBAL_CSS = `
 
 function LoginPage({ onLogin }) {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
   const [showPass, setShowPass] = useState(false);
 
   const handleLogin = async (e) => {
@@ -99,7 +99,7 @@ function LoginPage({ onLogin }) {
               <span style={{ fontSize:14 }}>🔐</span>
               <input type={showPass ? "text" : "password"} value={password}
                 onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key==="Enter" && handleLogin()}
+                onKeyDown={e => e.key === "Enter" && handleLogin()}
                 placeholder="Enter access code..." autoFocus disabled={loading}
                 style={{ flex:1, background:"none", border:"none", outline:"none",
                   color:"#aaccdd", fontFamily:"monospace", fontSize:13, letterSpacing:1 }} />
@@ -134,7 +134,8 @@ function LoginPage({ onLogin }) {
           <span>M1✓</span><span style={{color:"#112"}}>·</span>
           <span>M2✓</span><span style={{color:"#112"}}>·</span>
           <span>M3✓</span><span style={{color:"#112"}}>·</span>
-          <span style={{color:"#00d4ff"}}>M4 ACTIVE</span>
+          <span>M4✓</span><span style={{color:"#112"}}>·</span>
+          <span style={{color:"#00d4ff"}}>M5 ACTIVE</span>
         </div>
       </div>
     </div>
@@ -142,11 +143,11 @@ function LoginPage({ onLogin }) {
 }
 
 function Dashboard({ onLogout }) {
-  const [mode, setMode] = useState("IDLE");
-  const [showVnc, setShowVnc] = useState(true);
+  const [mode, setMode]           = useState("IDLE");
+  const [showVnc, setShowVnc]     = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState("");
-  const [wsEvent, setWsEvent] = useState(null);
+  const [wsEvent, setWsEvent]     = useState(null);
   const wsRef = useRef(null);
 
   useEffect(() => { getMode().then(d => setMode(d.mode)).catch(()=>{}); }, []);
@@ -162,6 +163,8 @@ function Dashboard({ onLogout }) {
             setLastEvent(`Task ${data.task_id?.slice(0,6)} → ${data.status}`);
           else if (data.type === "mode_change")
             setLastEvent(`Mode → ${data.data?.mode}`);
+          else if (data.type === "browser_reset")
+            setLastEvent("Browser reset");
         },
         () => { setWsConnected(false); setTimeout(connectWS, 3000); }
       );

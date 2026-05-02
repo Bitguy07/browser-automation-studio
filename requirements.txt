@@ -1,36 +1,49 @@
 # ============================================================
 # Browser Automation Studio — requirements.txt
-# M2: Added websocket-client for Chrome DevTools Protocol
+# M5: Real browser automation
+#
+# KEY DEPENDENCY NOTE — read before changing:
+#   browser-use 0.12.x pins groq==1.0.0 EXACTLY.
+#   langchain-groq (any version) requires groq<1.0.0.
+#   They CANNOT coexist.
+#
+#   Solution: Groq is accessed via langchain-openai pointed at
+#   Groq's OpenAI-compatible endpoint (api.groq.com/openai/v1).
+#   Do NOT add langchain-groq to this file.
 # ============================================================
 
-# Web Framework
+# ── Web Framework ─────────────────────────────────────────────
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
 aiofiles>=23.2.1
 
-# Authentication
+# ── Authentication ────────────────────────────────────────────
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 
-# Database
+# ── Database ──────────────────────────────────────────────────
 sqlalchemy>=2.0.30
 aiosqlite>=0.20.0
 
-# Browser Automation
-selenium>=4.21.0
-webdriver-manager>=4.0.1
+# ── Browser automation core ───────────────────────────────────
+# Playwright is installed by browser-use; we also need it for
+# save_session / load_session (storage_state API)
+browser-use==0.12.6
 
-# AI / LLM
-browser-use>=0.1.40
-groq>=0.8.0
+# ── LLM providers ────────────────────────────────────────────
+# Gemini (primary, vision-capable, free tier)
+
+# Groq via OpenAI-compat endpoint (NO langchain-groq — see note above)
+
+# Core langchain (required by browser-use)
 langchain>=0.2.3
-langchain-groq>=0.1.6
+langchain-core>=0.2.0
 
-# Telegram Bot
+# ── Telegram Bot ──────────────────────────────────────────────
 python-telegram-bot>=21.2
 
-# Utilities
+# ── Utilities ─────────────────────────────────────────────────
 python-dotenv>=1.0.1
 pydantic>=2.7.1
 pydantic-settings>=2.2.1
@@ -39,5 +52,5 @@ Pillow>=10.3.0
 websockets>=12.0
 structlog>=24.1.0
 
-# M2: Chrome DevTools Protocol screenshot support
+# ── CDP screenshot fallback ───────────────────────────────────
 websocket-client>=1.7.0
