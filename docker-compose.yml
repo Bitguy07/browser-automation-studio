@@ -27,6 +27,7 @@ services:
     # Persistent storage: map /data inside container to ./data on host
     volumes:
       - ./data:/data
+      - ./data/chrome-profile:/root/.chrome-data   # M7: persist Chrome login sessions
       # Hot-reload for development: mount source code directly
       # Comment these out for production-like local testing
       - ./backend:/app/backend

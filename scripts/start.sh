@@ -73,4 +73,18 @@ echo ""
 # ── Start supervisord ─────────────────────────────────────────
 # -n: nodaemon (run in foreground, required for Docker)
 # -c: config file location
+
+# ── Clean Chrome lock files from previous run ─────────────────
+# When /root/.chrome-data is volume-mounted, Chrome leaves behind
+# SingletonLock / SingletonSocket on shutdown. Chrome refuses to
+# start if it finds these stale files. Delete them before Chrome
+# starts so it launches cleanly with the persisted profile.
+echo "[start.sh] Cleaning Chrome lock files from previous run..."
+rm -f /root/.chrome-data/SingletonLock
+rm -f /root/.chrome-data/SingletonSocket
+rm -f /root/.chrome-data/SingletonCookie
+rm -f /root/.chrome-data/Default/Cookies-journal
+rm -f /root/.chrome-data/Default/.org.chromium.Chromium.*
+echo "[start.sh] Chrome lock cleanup done."
+
 exec /usr/bin/supervisord -n -c /app/supervisord.conf
