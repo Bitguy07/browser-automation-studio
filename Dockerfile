@@ -137,10 +137,14 @@ ENV OLLAMA_HOST=127.0.0.1:11434
 # NOTE: If the build times out on HF (rare), comment this line
 # and use the PULL_MODEL_ON_STARTUP=true env var instead —
 # the start.sh script handles the deferred pull.
-RUN ollama serve & \
-    sleep 5 && \
-    ollama pull qwen2.5vl:7b-instruct-q4_K_M && \
-    pkill ollama || true
+
+# ///////////////////////////////////
+# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+# RUN ollama serve & \
+#     sleep 5 && \
+#     ollama pull qwen2.5vl:7b-instruct-q4_K_M && \
+#     pkill ollama || true
 
 RUN chmod +x /app/scripts/start.sh
 
