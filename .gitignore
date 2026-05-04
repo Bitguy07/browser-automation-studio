@@ -1,1 +1,65 @@
+# ============================================================
+# Browser Automation Studio — .gitignore
+# ============================================================
+
+# ── Secrets — NEVER commit these ──────────────────────────────
+.env
+
+# ── Runtime data — too large / sensitive / ephemeral ─────────
 data/chrome-profile/
+data/app.db
+data/app.db-shm
+data/app.db-wal
+data/cookies/*.json
+data/outputs/
+data/downloads/
+data/ollama/
+
+# Keep the directory structure but not the contents
+!data/.gitkeep
+!data/cookies/.gitkeep
+!data/outputs/.gitkeep
+
+# ── Backups created by setup scripts ─────────────────────────
+*.bak
+data_backup_*/
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# ── Node / React ─────────────────────────────────────────────
+frontend/node_modules/
+frontend/build/
+
+# ── Docker ───────────────────────────────────────────────────
+# Don't ignore Dockerfile or docker-compose.yml — those are needed
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+build.log
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Git LFS placeholder — keep these ─────────────────────────
+!.gitkeep

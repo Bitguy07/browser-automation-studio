@@ -1,10 +1,19 @@
 # ============================================================
 # Browser Automation Studio — backend/browser.py
-# M5: Real browser automation via browser-use 0.12.6
+# M8: Three-tier LLM with local Qwen2.5-VL-7B as primary
 #
-# Uses browser-use's own LLM wrappers (NOT langchain):
-#   browser_use.llm.google.chat.ChatGoogle
-#   browser_use.llm.groq.chat.ChatGroq
+# LLM priority order:
+#   1. Qwen2.5-VL-7B-Instruct Q4 (Ollama, local, FREE, vision)
+#   2. Gemini 2.5 Flash Lite     (Google API, fallback)
+#   3. Groq llama-4-scout        (Groq API, last resort)
+#
+# PRIMARY_LLM env var controls the lead:
+#   "qwen"   → Qwen first, then Gemini, then Groq  (default on HF)
+#   "gemini" → Gemini first, then Groq             (original M5 behavior)
+#   "groq"   → Groq first, then Gemini
+#
+# Uses browser-use's own LLM wrappers for Gemini and Groq.
+# Uses langchain_community ChatOllama for local Qwen.
 # ============================================================
 
 from __future__ import annotations
@@ -23,8 +32,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger("browser")
-
-# Enable browser-use's own logger so we can see step details in FastAPI logs
 logging.getLogger("browser_use").setLevel(logging.INFO)
 
 COOKIES_DIR   = os.getenv("COOKIES_DIR", "/data/cookies")
@@ -33,12 +40,14 @@ DOWNLOADS_DIR = os.path.join(DATA_DIR, "downloads")
 
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY",   "")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-PRIMARY_LLM    = os.getenv("PRIMARY_LLM",    "gemini").lower()
+PRIMARY_LLM    = os.getenv("PRIMARY_LLM",    "qwen").lower()
 
-GEMINI_MODEL = "gemini-2.5-flash-lite"
-GROQ_MODEL   = "meta-llama/llama-4-scout-17b-16e-instruct"
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+GROQ_MODEL     = os.getenv("GROQ_MODEL",   "meta-llama/llama-4-scout-17b-16e-instruct")
+OLLAMA_MODEL   = os.getenv("OLLAMA_MODEL", "qwen2.5vl:7b-instruct-q4_K_M")
+OLLAMA_HOST    = os.getenv("OLLAMA_HOST",  "http://127.0.0.1:11434")
 
-# ── System message injected into every agent run ─────────────
+# ── System prompt ─────────────────────────────────────────────
 EXTEND_SYSTEM_MESSAGE = """
 ## Critical Rules
 
@@ -69,7 +78,7 @@ EXTEND_SYSTEM_MESSAGE = """
 - "Show me X" means navigate to X and display it.
 
 ### Error Handling
-- On CAPTCHA: first try to solve it by yourself if still any problem latter appear then stop and report and give explanation of the alternative way to resolve the issue."
+- On CAPTCHA: try to solve it; if stuck, report and suggest manual intervention.
 - On rate limit: wait and retry.
 - On 404 or blocked page: try an alternative URL or search engine.
 
@@ -82,8 +91,44 @@ Before calling done(), verify:
 
 
 # ════════════════════════════════════════════════════════════════
-# LLM factory
+# LLM factory functions
 # ════════════════════════════════════════════════════════════════
+
+def _is_ollama_ready() -> bool:
+    """Check if Ollama is running and has the model loaded."""
+    try:
+        with urllib.request.urlopen(
+            f"{OLLAMA_HOST}/api/tags", timeout=3
+        ) as r:
+            data = json.loads(r.read())
+            models = [m.get("name", "") for m in data.get("models", [])]
+            return any("qwen2.5vl" in m for m in models)
+    except Exception:
+        return False
+
+
+def _make_qwen_llm():
+    """Local Qwen2.5-VL-7B via Ollama using langchain ChatOllama."""
+    try:
+        from langchain_ollama import ChatOllama
+    except ImportError:
+        # fallback import path
+        from langchain_community.chat_models import ChatOllama
+
+    if not _is_ollama_ready():
+        raise RuntimeError(
+            f"Ollama not ready or model not loaded at {OLLAMA_HOST}. "
+            "Check: ollama list"
+        )
+
+    return ChatOllama(
+        model=OLLAMA_MODEL,
+        base_url=OLLAMA_HOST,
+        temperature=0.3,
+        num_ctx=32768,       # safe for 16GB HF Space (don't use 128K)
+        num_predict=4096,
+    )
+
 
 def _make_gemini_llm():
     from browser_use.llm.google.chat import ChatGoogle
@@ -106,22 +151,86 @@ def _make_groq_llm():
 
 
 def _build_llms():
-    """Returns (primary_llm, fallback_llm, use_vision)."""
-    if PRIMARY_LLM == "gemini" and GOOGLE_API_KEY:
-        try:
-            primary  = _make_gemini_llm()
-            fallback = _make_groq_llm() if GROQ_API_KEY else None
-            return primary, fallback, "auto"
-        except Exception as e:
-            logger.warning(f"Gemini init failed ({e}), falling back to Groq")
+    """
+    Build primary + fallback LLMs based on PRIMARY_LLM env var.
 
+    Returns: (primary_llm, fallback_llm, use_vision)
+
+    LLM priority when PRIMARY_LLM=qwen (default):
+        1. Qwen2.5-VL (local Ollama)  — vision: True
+        2. Gemini 2.5 Flash Lite      — vision: auto
+        3. Groq llama-4-scout         — vision: False
+
+    We use a cascade: try to init primary, on failure try next.
+    fallback_llm is the first working API model found.
+    """
+
+    errors = []
+
+    # ── Qwen-first cascade ────────────────────────────────────
+    if PRIMARY_LLM in ("qwen", "ollama", "local"):
+        try:
+            qwen = _make_qwen_llm()
+            # Try to build a gemini or groq fallback
+            fallback = None
+            use_vision_fallback = False
+            if GOOGLE_API_KEY:
+                try:
+                    fallback = _make_gemini_llm()
+                    use_vision_fallback = "auto"
+                except Exception as e:
+                    errors.append(f"Gemini fallback init: {e}")
+            if fallback is None and GROQ_API_KEY:
+                try:
+                    fallback = _make_groq_llm()
+                    use_vision_fallback = False
+                except Exception as e:
+                    errors.append(f"Groq fallback init: {e}")
+
+            logger.info(
+                f"LLM: primary=Qwen2.5-VL (Ollama), "
+                f"fallback={'Gemini' if GOOGLE_API_KEY else 'Groq' if GROQ_API_KEY else 'none'}"
+            )
+            # Qwen via Ollama supports vision natively
+            return qwen, fallback, True
+
+        except Exception as e:
+            errors.append(f"Qwen/Ollama init failed: {e}")
+            logger.warning(f"Qwen unavailable ({e}) — falling back to Gemini/Groq")
+
+    # ── Gemini-first cascade ──────────────────────────────────
+    if PRIMARY_LLM == "gemini" or (PRIMARY_LLM in ("qwen", "ollama", "local") and GOOGLE_API_KEY):
+        if GOOGLE_API_KEY:
+            try:
+                gemini = _make_gemini_llm()
+                fallback = None
+                if GROQ_API_KEY:
+                    try:
+                        fallback = _make_groq_llm()
+                    except Exception as e:
+                        errors.append(f"Groq fallback init: {e}")
+                logger.info(
+                    f"LLM: primary=Gemini ({GEMINI_MODEL}), "
+                    f"fallback={'Groq' if fallback else 'none'}"
+                )
+                return gemini, fallback, "auto"
+            except Exception as e:
+                errors.append(f"Gemini init failed: {e}")
+                logger.warning(f"Gemini unavailable ({e}) — falling back to Groq")
+
+    # ── Groq last resort ──────────────────────────────────────
     if GROQ_API_KEY:
-        primary  = _make_groq_llm()
-        fallback = _make_gemini_llm() if GOOGLE_API_KEY else None
-        return primary, fallback, False
+        try:
+            groq = _make_groq_llm()
+            logger.info("LLM: primary=Groq (last resort), fallback=none")
+            return groq, None, False
+        except Exception as e:
+            errors.append(f"Groq init failed: {e}")
 
     raise RuntimeError(
-        "No LLM available. Set GOOGLE_API_KEY or GROQ_API_KEY in .env"
+        "No LLM available. Errors:\n" + "\n".join(errors) + "\n\n"
+        "Set at least one of: OLLAMA_HOST (with model loaded), "
+        "GOOGLE_API_KEY, or GROQ_API_KEY"
     )
 
 
@@ -270,7 +379,7 @@ async def run_task(
         raise RuntimeError(f"LLM init failed: {e}")
 
     step_count = [0]
-    MAX_STEPS  = 500   # increased from 30 — complex tasks need more steps
+    MAX_STEPS  = 100
 
     async def on_step(browser_state_summary, agent_output, step_number: int):
         step_count[0] = step_number
@@ -327,7 +436,7 @@ async def run_task(
         max_actions_per_step=5,
         generate_gif=False,
         register_new_step_callback=on_step,
-        extend_system_message=EXTEND_SYSTEM_MESSAGE,  # ← professional instructions
+        extend_system_message=EXTEND_SYSTEM_MESSAGE,
     )
 
     logger.info(f"[{task_id[:8]}] Agent starting: {objective[:80]}")
