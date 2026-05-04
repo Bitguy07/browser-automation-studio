@@ -14,7 +14,7 @@ FROM ubuntu:22.04
 
 
 # Cache bust — increment this number to force HF full rebuild
-ARG CACHEBUST=1
+ARG CACHEBUST=2
 
 
 ENV DEBIAN_FRONTEND=noninteractive
