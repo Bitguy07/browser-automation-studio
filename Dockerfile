@@ -79,8 +79,11 @@ RUN git clone --depth=1 https://github.com/novnc/noVNC.git /opt/novnc && \
     ln -sf /opt/novnc/vnc.html /opt/novnc/index.html
 
 # ── Ollama ────────────────────────────────────────────────────
-# zstd is now installed above so this will succeed
-RUN curl -fsSL https://ollama.com/install.sh | sh
+# Install via direct binary instead of install script (more reliable on HF)
+RUN curl -L --max-time 300 \
+    "https://github.com/ollama/ollama/releases/latest/download/ollama-linux-amd64" \
+    -o /usr/local/bin/ollama && \
+    chmod +x /usr/local/bin/ollama
 
 # ── Create app user (HF Spaces requires UID 1000) ─────────────
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
