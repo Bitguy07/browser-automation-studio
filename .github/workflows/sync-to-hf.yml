@@ -24,12 +24,23 @@ jobs:
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
 
-          # Add HF remote
+          # Safety net: strip binary/data files HF rejects
+          FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force \
+            --index-filter \
+            "git rm --cached --ignore-unmatch \
+             data/app.db \
+             data/app.db-shm \
+             data/app.db-wal \
+             build.log \
+             data/cookies/swagger-test.json \
+             data/cookies/test-session.json && \
+             git rm --cached --ignore-unmatch -r \
+             data_backup_20260501_080357" \
+            --prune-empty -- --all 2>/dev/null || true
+
           git remote add hf \
             "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE_NAME}"
 
-          # Push main branch to HF Space
-          # --force because HF may have diverged (README edits via UI etc.)
           git push hf main:main --force
 
           echo "✅ Pushed to https://huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE_NAME}"
