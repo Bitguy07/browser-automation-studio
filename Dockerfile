@@ -2,18 +2,12 @@
 # Browser Automation Studio — Dockerfile
 # M8: Hugging Face Spaces deployment
 #
-# Key changes from M7:
-#   - Ollama installed for local Qwen2.5-VL-7B-Instruct (Q4)
-#   - USER 1000 directive (HF security requirement)
-#   - /data persistent directory owned by user 1000
-#   - Layer caching optimized (deps before code)
-#   - Ollama model pulled at build time into image layer
-#     so it survives container restarts on HF
-#
-# LLM priority:
-#   1. Qwen2.5-VL-7B (Ollama, local, FREE, vision)
-#   2. Gemini 2.5 Flash Lite (API, fallback)
-#   3. Groq llama-4-scout  (API, last resort)
+# Fixes applied:
+#   - zstd added to core packages (required by Ollama installer)
+#   - Ollama model pull removed from build (pulled on first startup)
+#   - supervisord socket/pid moved to /tmp (writable by USER 1000)
+#   - /var/log/supervisor and /tmp made world-writable
+#   - USER 1000 kept (HF requirement)
 # ============================================================
 
 FROM ubuntu:22.04
@@ -31,7 +25,7 @@ ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
-# ── Core system packages ──────────────────────────────────────
+# ── Core system packages (zstd required by Ollama installer) ──
 RUN apt-get update && apt-get install -y \
     curl wget git unzip ca-certificates gnupg \
     software-properties-common build-essential \
@@ -39,6 +33,7 @@ RUN apt-get update && apt-get install -y \
     xvfb x11vnc websockify supervisor \
     fonts-liberation fonts-dejavu-core \
     netcat-openbsd procps htop nano scrot \
+    zstd \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Python 3.11 ───────────────────────────────────────────────
@@ -83,8 +78,7 @@ RUN git clone --depth=1 https://github.com/novnc/noVNC.git /opt/novnc && \
     ln -sf /opt/novnc/vnc.html /opt/novnc/index.html
 
 # ── Ollama ────────────────────────────────────────────────────
-# Ollama manages local LLM serving.
-# We install it system-wide so it runs as a background service.
+# zstd is now installed above so this will succeed
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # ── Create app user (HF Spaces requires UID 1000) ─────────────
@@ -112,39 +106,27 @@ COPY . .
 # ── Build React frontend ──────────────────────────────────────
 RUN cd frontend && npm run build
 
-# ── Data directories (owned by appuser for HF compatibility) ──
+# ── Directories and permissions ───────────────────────────────
+# /tmp is always writable by all users — use it for supervisord
+# socket and pid so USER 1000 can write to them
 RUN mkdir -p /data/cookies /data/outputs /data/downloads \
-             /data/chrome-profile /data/ollama \
-             /var/log/supervisor /var/run && \
+             /data/chrome-profile /data/ollama /data/logs \
+             /var/log/supervisor && \
     chmod -R 777 /data && \
+    chmod -R 777 /var/log/supervisor && \
+    chmod -R 777 /tmp && \
     chown -R appuser:appuser /data && \
     chown -R appuser:appuser /app && \
-    chown -R appuser:appuser /opt/venv && \
-    chmod -R 777 /var/log/supervisor && \
-    chmod -R 777 /var/run
+    chown -R appuser:appuser /opt/venv
 
-# ── Ollama model directory → persistent /data/ollama ──────────
-# Point Ollama's model storage to /data so models survive
-# container restarts when /data is a mounted HF persistent store.
+# ── Ollama config ─────────────────────────────────────────────
 ENV OLLAMA_MODELS=/data/ollama
 ENV OLLAMA_HOST=127.0.0.1:11434
 
-# ── Pull Qwen2.5-VL-7B at build time ──────────────────────────
-# This bakes the model into the image layer so it is immediately
-# available on HF without a startup download.
-# The model is ~5GB — HF image storage supports this.
-#
-# NOTE: If the build times out on HF (rare), comment this line
-# and use the PULL_MODEL_ON_STARTUP=true env var instead —
-# the start.sh script handles the deferred pull.
-
-# ///////////////////////////////////
-# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-
-# RUN ollama serve & \
-#     sleep 5 && \
-#     ollama pull qwen2.5vl:7b-instruct-q4_K_M && \
-#     pkill ollama || true
+# NOTE: Model is NOT pulled at build time.
+# Set PULL_MODEL_ON_STARTUP=true as HF Secret.
+# On first startup start.sh pulls the model into /data/ollama
+# which is your persistent HF Storage Bucket — never re-downloads.
 
 RUN chmod +x /app/scripts/start.sh
 
