@@ -25,7 +25,7 @@ ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
-# ── Core system packages (zstd required by Ollama installer) ──
+# ── Core system packages (zstd required by Ollama installer) v2 ──
 RUN apt-get update && apt-get install -y \
     curl wget git unzip ca-certificates gnupg \
     software-properties-common build-essential \
