@@ -12,6 +12,11 @@
 
 FROM ubuntu:22.04
 
+
+# Cache bust — increment this number to force HF full rebuild
+ARG CACHEBUST=1
+
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Kolkata
 ENV HOME=/home/appuser
