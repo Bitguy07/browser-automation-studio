@@ -27,7 +27,7 @@ jobs:
           # Create orphan branch — zero history, only current files
           git checkout --orphan hf-deploy
           git add -A
-          git commit -m "Deploy to HF Space"
+          git commit -m "Deploy to HF Space $(date +%Y%m%d-%H%M%S)"
 
           # Add HF remote
           git remote add hf \
