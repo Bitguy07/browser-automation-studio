@@ -101,7 +101,7 @@ export DISPLAY=:99
 
 echo ""
 echo "======================================================"
-echo "  PRIMARY_LLM   = ${PRIMARY_LLM:-gemini}"
+echo "  PRIMARY_LLM   = ${PRIMARY_LLM:-qwen}"
 echo "  OLLAMA_HOST   = ${OLLAMA_HOST}"
 echo "  APP_PORT      = ${APP_PORT:-7860}"
 echo "======================================================"
