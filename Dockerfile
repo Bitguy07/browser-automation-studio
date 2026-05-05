@@ -1,17 +1,20 @@
 # ============================================================
 # Browser Automation Studio — Dockerfile
-# M8: Hugging Face Spaces deployment
+# HF Spaces — Final production version
 #
-# Fixes applied:
-#   - zstd added to core packages (required by Ollama installer)
-#   - Ollama model pull removed from build (pulled on first startup)
-#   - supervisord socket/pid moved to /tmp (writable by USER 1000)
-#   - /var/log/supervisor and /tmp made world-writable
-#   - USER 1000 kept (HF requirement)
+# Design principle: BUILD FAST, RUN HEAVY
+#   - No Ollama in build (installs at first container startup)
+#   - No model pull in build (pulled at first container startup)
+#   - Build only does: apt, python, node, chrome, playwright, react
+#   - Build completes in ~10-15 minutes reliably
+#   - First startup takes ~15 min (Ollama + model download, once only)
+#   - All subsequent startups are fast (model cached in /data/ollama)
+#
+# Cache bust: increment to force full HF rebuild
+ARG CACHEBUST=1
 # ============================================================
 
 FROM ubuntu:22.04
-
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Kolkata
@@ -27,7 +30,7 @@ ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
 # ── Core system packages ──────────────────────────────────────
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl wget git unzip ca-certificates gnupg \
     software-properties-common build-essential \
     libssl-dev libffi-dev \
@@ -38,7 +41,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Python 3.11 ───────────────────────────────────────────────
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 python3.11-dev python3.11-venv \
     python3-distutils python3-pip \
     && rm -rf /var/lib/apt/lists/*
@@ -57,7 +60,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     rm -rf /var/lib/apt/lists/*
 
 # ── Chrome dependencies ───────────────────────────────────────
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
     libcups2 libdrm2 libxkbcommon0 libxcomposite1 \
     libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 \
@@ -78,12 +81,10 @@ RUN git clone --depth=1 https://github.com/novnc/noVNC.git /opt/novnc && \
     git clone --depth=1 https://github.com/novnc/websockify.git /opt/novnc/utils/websockify && \
     ln -sf /opt/novnc/vnc.html /opt/novnc/index.html
 
-# ── Ollama ────────────────────────────────────────────────────
-# Install via direct binary instead of install script (more reliable on HF)
-RUN curl -L --max-time 300 \
-    "https://github.com/ollama/ollama/releases/latest/download/ollama-linux-amd64" \
-    -o /usr/local/bin/ollama && \
-    chmod +x /usr/local/bin/ollama
+# ── NO OLLAMA IN BUILD ────────────────────────────────────────
+# Ollama is installed at first container startup by start.sh
+# This avoids HF build timeouts from large downloads
+# The binary is cached in /data/ollama after first install
 
 # ── Create app user (HF Spaces requires UID 1000) ─────────────
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
@@ -111,8 +112,6 @@ COPY . .
 RUN cd frontend && npm run build
 
 # ── Directories and permissions ───────────────────────────────
-# /tmp is always writable by all users — use it for supervisord
-# socket and pid so USER 1000 can write to them
 RUN mkdir -p /data/cookies /data/outputs /data/downloads \
              /data/chrome-profile /data/ollama /data/logs \
              /var/log/supervisor && \
@@ -127,11 +126,6 @@ RUN mkdir -p /data/cookies /data/outputs /data/downloads \
 ENV OLLAMA_MODELS=/data/ollama
 ENV OLLAMA_HOST=127.0.0.1:11434
 
-# NOTE: Model is NOT pulled at build time.
-# Set PULL_MODEL_ON_STARTUP=true as HF Secret.
-# On first startup start.sh pulls the model into /data/ollama
-# which is your persistent HF Storage Bucket — never re-downloads.
-
 RUN chmod +x /app/scripts/start.sh
 
 # ── Switch to non-root user (HF requirement) ──────────────────
@@ -140,7 +134,7 @@ USER 1000
 EXPOSE 7860
 EXPOSE 6080
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=5 \
     CMD curl -f http://localhost:7860/health || exit 1
 
 CMD ["/app/scripts/start.sh"]
