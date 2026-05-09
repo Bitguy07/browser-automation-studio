@@ -1,0 +1,16 @@
+.env
+data/
+data_backup_*/
+.git/
+.github/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+frontend/node_modules/
+*.log
+build.log
+.DS_Store
+Thumbs.db

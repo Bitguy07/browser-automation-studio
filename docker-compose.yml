@@ -4,65 +4,60 @@
 # Usage: docker-compose up --build
 # ============================================================
 
-# version: '3.9'
-
 services:
   automation-studio:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: browser-automation-studio
-    
+
     # Port mapping: host:container
     ports:
-      - "7860:7860"   # FastAPI (primary, also serves React)
+      - "7860:7860"   # FastAPI + React UI
       - "6080:6080"   # noVNC web viewer
       - "5900:5900"   # Raw VNC (optional, for VNC client apps)
-      - "9222:9222"   # Chrome DevTools port 9222
-    
+      - "9222:9222"   # Chrome DevTools
+
     # Load environment variables from .env file
     env_file:
       - .env
-    
-    # Persistent storage: map /data inside container to ./data on host
+
+    # Persistent storage
+    # /data inside container maps to ./data on host —
+    # chrome-profile, app.db, cookies, ollama models all live here
     volumes:
       - ./data:/data
-      - ./data/chrome-profile:/root/.chrome-data   # M7: persist Chrome login sessions
-      # Hot-reload for development: mount source code directly
-      # Comment these out for production-like local testing
+      # Hot-reload for local development (comment out for production-like testing)
       - ./backend:/app/backend
       - ./frontend/src:/app/frontend/src
-    
+
     # Keep container running even if it crashes
     restart: unless-stopped
-    
-    # Shared memory size (Chrome needs this — default 64MB is too small)
+
+    # Shared memory — Chrome needs more than the default 64MB
     shm_size: '2gb'
-    
+
     # Environment overrides for local dev
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
       - DISPLAY=:99
-    
+      - CHROME_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+      - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
     # Health check
+    # start_period=300s covers first-startup Ollama download time
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
-    
-    # Resource limits (adjust based on your machine)
-    # Your machine: 7694MiB RAM — keeping limits reasonable
+      start_period: 300s
+
+    # Resource limits for local machine (7694MiB RAM)
     deploy:
       resources:
         limits:
           memory: 4G
         reservations:
           memory: 1G
-
-# Named volume for data persistence across rebuilds
-volumes:
-  data:
-    driver: local

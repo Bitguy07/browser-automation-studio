@@ -1,17 +1,16 @@
 # ============================================================
 # Browser Automation Studio — Dockerfile
-# HF Spaces — Final production version
+# HF Spaces — Minimal build, maximum reliability
 #
-# Design principle: BUILD FAST, RUN HEAVY
-#   - No Ollama in build (installs at first container startup)
-#   - No model pull in build (pulled at first container startup)
-#   - Build only does: apt, python, node, chrome, playwright, react
-#   - Build completes in ~10-15 minutes reliably
-#   - First startup takes ~15 min (Ollama + model download, once only)
-#   - All subsequent startups are fast (model cached in /data/ollama)
+# KEY DECISIONS:
+#   1. NO playwright chromium download (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1)
+#      browser-use uses system Google Chrome instead — saves 300MB + 5min
+#   2. NO Ollama in build — installed at first container startup by start.sh
+#   3. NO model pull in build — pulled at first startup into /data/ollama (persistent)
+#   4. Result: build completes in ~10 min reliably every time
 #
 # Cache bust: increment to force full HF rebuild
-ARG CACHEBUST=1
+ARG CACHEBUST=3
 # ============================================================
 
 FROM ubuntu:22.04
@@ -19,9 +18,12 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Kolkata
 ENV HOME=/home/appuser
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # ── Locale ────────────────────────────────────────────────────
-RUN apt-get update && apt-get install -y locales && \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales && \
     locale-gen en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
 
@@ -74,19 +76,15 @@ RUN wget -q -O /tmp/google-chrome.deb \
     rm /tmp/google-chrome.deb && \
     rm -rf /var/lib/apt/lists/*
 
-RUN ln -sf /usr/bin/google-chrome-stable /usr/bin/chromium
+RUN ln -sf /usr/bin/google-chrome-stable /usr/bin/chromium && \
+    ln -sf /usr/bin/google-chrome-stable /usr/bin/google-chrome
 
 # ── noVNC ─────────────────────────────────────────────────────
 RUN git clone --depth=1 https://github.com/novnc/noVNC.git /opt/novnc && \
     git clone --depth=1 https://github.com/novnc/websockify.git /opt/novnc/utils/websockify && \
     ln -sf /opt/novnc/vnc.html /opt/novnc/index.html
 
-# ── NO OLLAMA IN BUILD ────────────────────────────────────────
-# Ollama is installed at first container startup by start.sh
-# This avoids HF build timeouts from large downloads
-# The binary is cached in /data/ollama after first install
-
-# ── Create app user (HF Spaces requires UID 1000) ─────────────
+# ── Create app user (HF requires UID 1000) ────────────────────
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
     mkdir -p /home/appuser && \
     chown -R appuser:appuser /home/appuser
@@ -97,18 +95,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Playwright browser ────────────────────────────────────────
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN pip install playwright && /opt/venv/bin/playwright install chromium --with-deps
+# ── Playwright Python package only (NO browser download) ──────
+RUN pip install playwright
 
-# ── Node/React dependencies ───────────────────────────────────
+# ── Node/React build ──────────────────────────────────────────
 COPY frontend/package.json ./frontend/
 RUN cd frontend && npm install
 
-# ── Copy application code ─────────────────────────────────────
 COPY . .
-
-# ── Build React frontend ──────────────────────────────────────
 RUN cd frontend && npm run build
 
 # ── Directories and permissions ───────────────────────────────
@@ -122,13 +116,11 @@ RUN mkdir -p /data/cookies /data/outputs /data/downloads \
     chown -R appuser:appuser /app && \
     chown -R appuser:appuser /opt/venv
 
-# ── Ollama config ─────────────────────────────────────────────
 ENV OLLAMA_MODELS=/data/ollama
 ENV OLLAMA_HOST=127.0.0.1:11434
 
 RUN chmod +x /app/scripts/start.sh
 
-# ── Switch to non-root user (HF requirement) ──────────────────
 USER 1000
 
 EXPOSE 7860
