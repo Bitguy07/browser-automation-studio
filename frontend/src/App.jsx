@@ -52,6 +52,9 @@ function LoginPage({ onLogin }) {
       <div style={{ position:"absolute", inset:0, animation:"fadeIn 2s",
         backgroundImage:"linear-gradient(rgba(0,212,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.025) 1px,transparent 1px)",
         backgroundSize:"40px 40px" }} />
+
+
+
       {/* Scan line */}
       <div style={{ position:"absolute", left:0, right:0, height:2,
         background:"linear-gradient(transparent,rgba(0,212,255,0.06),transparent)",
