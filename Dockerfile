@@ -9,8 +9,6 @@
 #   3. NO model pull in build — pulled at first startup into /data/ollama (persistent)
 #   4. Result: build completes in ~10 min reliably every time
 #
-# Cache bust: increment to force full HF rebuild
-ARG CACHEBUST=3
 # ============================================================
 
 FROM ubuntu:22.04
