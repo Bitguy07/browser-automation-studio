@@ -6,17 +6,19 @@
 .env
 
 # ── Runtime data — too large / sensitive / ephemeral ─────────
-# Rule: ignore everything inside data/, then selectively
-# un-ignore the directory stubs we want to keep in git.
-# NOTE: parent directory must be un-ignored before its contents.
-data/**
-!data/cookies/
-!data/outputs/
-!data/downloads/
+data/chrome-profile/
+data/app.db
+data/app.db-shm
+data/app.db-wal
+data/cookies/*.json
+data/outputs/
+data/downloads/
+data/ollama/
+
+# Keep the directory structure but not the contents
 !data/.gitkeep
 !data/cookies/.gitkeep
 !data/outputs/.gitkeep
-!data/downloads/.gitkeep
 
 # ── Backups created by setup scripts ─────────────────────────
 *.bak
@@ -39,10 +41,10 @@ env/
 
 # ── Node / React ─────────────────────────────────────────────
 frontend/node_modules/
-frontend/build/
+
 
 # ── Docker ───────────────────────────────────────────────────
-# Dockerfile and docker-compose.yml are intentionally NOT ignored
+# Don't ignore Dockerfile or docker-compose.yml — those are needed
 
 # ── Logs ─────────────────────────────────────────────────────
 *.log
@@ -58,3 +60,6 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+
+# ── Git LFS placeholder — keep these ─────────────────────────
+!.gitkeep
