@@ -44,7 +44,7 @@ PRIMARY_LLM    = os.getenv("PRIMARY_LLM",    "qwen").lower()
 
 GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 GROQ_MODEL     = os.getenv("GROQ_MODEL",   "meta-llama/llama-4-scout-17b-16e-instruct")
-OLLAMA_MODEL   = os.getenv("OLLAMA_MODEL", "qwen2.5vl:7b-instruct-q4_K_M")
+OLLAMA_MODEL   = os.getenv("OLLAMA_MODEL", "qwen2.5vl:7b")
 OLLAMA_HOST    = os.getenv("OLLAMA_HOST",  "http://127.0.0.1:11434")
 
 # ── System prompt ─────────────────────────────────────────────
@@ -125,7 +125,7 @@ def _make_qwen_llm():
         model=OLLAMA_MODEL,
         base_url=OLLAMA_HOST,
         temperature=0.3,
-        num_ctx=32768,       # safe for 16GB HF Space (don't use 128K)
+        num_ctx=8192,        # 8K is enough for browser-use steps; saves ~2-3GB vs 32K
         num_predict=4096,
     )
 

@@ -6,6 +6,7 @@ colorTo: pink
 sdk: docker
 pinned: false
 app_port: 7860
+startup_duration_timeout: 1h
 ---
 
 # Browser Automation Studio
