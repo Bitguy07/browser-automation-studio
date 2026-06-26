@@ -13,13 +13,12 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
-from telegram import Update
 from backend.telegram_bot import init_bot
 
 from backend.auth import (
@@ -72,19 +71,32 @@ async def lifespan(app: FastAPI):
     # Start Telegram Bot in background so it never blocks FastAPI startup
     if ptb_app:
         async def start_telegram():
-            try:
-                await ptb_app.initialize()
-                await ptb_app.start()
-                # We MUST use polling. Webhooks cannot reach Private Hugging Face Spaces
-                # because Telegram's servers cannot bypass the HF private space authentication.
-                print("[Telegram] Deleting any existing webhook...", flush=True)
-                await ptb_app.bot.delete_webhook(drop_pending_updates=True)
-                
-                print("[Telegram] Starting polling (Webhooks unsupported on Private Spaces)...", flush=True)
-                await ptb_app.updater.start_polling(drop_pending_updates=True)
-            except Exception as e:
-                print(f"[Telegram] Failed to start bot: {e}", flush=True)
-                
+            # HF Free Tier has slow outbound networking during first ~60s of boot.
+            # Retry initialize() multiple times before giving up.
+            for attempt in range(1, 11):
+                try:
+                    print(f"[Telegram] Initialization attempt {attempt}/10...", flush=True)
+                    await ptb_app.initialize()
+                    await ptb_app.start()
+                    print("[Telegram] Deleting any existing webhook...", flush=True)
+                    await ptb_app.bot.delete_webhook(drop_pending_updates=True)
+                    print("[Telegram] Starting polling...", flush=True)
+                    await ptb_app.updater.start_polling(drop_pending_updates=True)
+                    print("[Telegram] ✓ Bot is running and polling for messages!", flush=True)
+                    return  # success — exit the retry loop
+                except Exception as e:
+                    print(f"[Telegram] Attempt {attempt} failed: {e}", flush=True)
+                    # Clean up partial init before retrying
+                    try:
+                        await ptb_app.shutdown()
+                    except Exception:
+                        pass
+                    if attempt < 10:
+                        wait = min(15 * attempt, 60)
+                        print(f"[Telegram] Retrying in {wait}s...", flush=True)
+                        await asyncio.sleep(wait)
+            print("[Telegram] ✗ All 10 attempts failed. Bot will not run.", flush=True)
+
         asyncio.create_task(start_telegram())
 
     db = SessionLocal()
@@ -97,10 +109,12 @@ async def lifespan(app: FastAPI):
 
     if ptb_app:
         print("[Telegram] Shutting down bot...")
-        if not os.getenv("SPACE_HOST"):
+        try:
             await ptb_app.updater.stop()
-        await ptb_app.stop()
-        await ptb_app.shutdown()
+            await ptb_app.stop()
+            await ptb_app.shutdown()
+        except Exception:
+            pass
 
 
 app = FastAPI(
