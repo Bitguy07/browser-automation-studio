@@ -32,8 +32,10 @@ __pycache__/
 .Python
 *.egg-info/
 dist/
-build/
 .eggs/
+# NOTE: Do NOT add a generic "build/" here — it blocks frontend/build/
+# which must be deployed to HF. Only ignore Python-specific build dirs.
+!frontend/build/
 *.egg
 .venv/
 venv/

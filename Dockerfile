@@ -90,7 +90,7 @@ RUN useradd -m -u 1000 -s /bin/bash appuser && \
     chown -R appuser:appuser /data && \
     chown -R appuser:appuser /app && \
     chown -R appuser:appuser /opt/venv && \
-    chmod +x /app/scripts/start.sh /app/scripts/pull_model.sh
+    chmod +x /app/scripts/start.sh /app/scripts/pull_model.sh /app/scripts/delayed_start.sh
 
 ENV OLLAMA_MODELS=/data/ollama
 ENV OLLAMA_HOST=127.0.0.1:11434

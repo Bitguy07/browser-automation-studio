@@ -397,8 +397,12 @@ async def root():
 if os.path.exists("/opt/novnc"):
     app.mount("/vnc", StaticFiles(directory="/opt/novnc"), name="novnc")
 
-if os.path.exists("/app/frontend/build"):
-    app.mount("/static", StaticFiles(directory="/app/frontend/build/static"), name="static")
+if os.path.isdir("/app/frontend/build"):
+    static_dir = "/app/frontend/build/static"
+    if os.path.isdir(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    else:
+        print("WARNING: /app/frontend/build/static not found — frontend CSS/JS won't be served")
 
 
 if __name__ == "__main__":

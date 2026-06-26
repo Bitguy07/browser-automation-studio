@@ -436,8 +436,8 @@ async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 def main() -> None:
     if not BOT_TOKEN:
-        log.error("TELEGRAM_BOT_TOKEN is not set. Bot cannot start.")
-        sys.exit(1)
+        log.warning("TELEGRAM_BOT_TOKEN is not set. Bot disabled — exiting cleanly.")
+        sys.exit(0)
 
     if ALLOWED_ID == 0:
         log.warning("TELEGRAM_CHAT_ID is not set — ALL users will be denied!")
