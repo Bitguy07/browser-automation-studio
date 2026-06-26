@@ -77,6 +77,10 @@ COPY requirements.txt .
 RUN uv pip install --no-cache -r requirements.txt
 
 # ── App code ─────────────────────────────────────────────────
+# --- BUST CACHE ---
+# Increment this number to force Hugging Face to rebuild from this point
+ENV CACHE_BUSTER=1
+
 COPY . .
 
 # ── Directories and permissions ──────────────────────────────
