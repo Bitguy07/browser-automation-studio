@@ -75,14 +75,13 @@ async def lifespan(app: FastAPI):
             try:
                 await ptb_app.initialize()
                 await ptb_app.start()
-                space_host = os.getenv("SPACE_HOST")
-                if space_host:
-                    webhook_url = f"https://{space_host}/api/telegram/webhook"
-                    print(f"[Telegram] Running on Hugging Face. Setting webhook to {webhook_url}")
-                    await ptb_app.bot.set_webhook(url=webhook_url)
-                else:
-                    print("[Telegram] Running locally. Starting polling...")
-                    await ptb_app.updater.start_polling(drop_pending_updates=True)
+                # We MUST use polling. Webhooks cannot reach Private Hugging Face Spaces
+                # because Telegram's servers cannot bypass the HF private space authentication.
+                print("[Telegram] Deleting any existing webhook...")
+                await ptb_app.bot.delete_webhook(drop_pending_updates=True)
+                
+                print("[Telegram] Starting polling (Webhooks unsupported on Private Spaces)...")
+                await ptb_app.updater.start_polling(drop_pending_updates=True)
             except Exception as e:
                 print(f"[Telegram] Failed to start bot: {e}")
                 
@@ -126,19 +125,7 @@ app.add_middleware(
 )
 
 
-@app.post("/api/telegram/webhook")
-async def telegram_webhook(request: Request):
-    """Receive incoming Telegram updates via Webhook."""
-    if not ptb_app:
-        return Response(status_code=503)
-    try:
-        data = await request.json()
-        update = Update.de_json(data=data, bot=ptb_app.bot)
-        await ptb_app.update_queue.put(update)
-        return Response(status_code=200)
-    except Exception as e:
-        print(f"[Telegram] Webhook error: {e}")
-        return Response(status_code=500)
+
 
 
 # ── System helpers ────────────────────────────────────────────
