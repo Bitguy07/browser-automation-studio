@@ -492,7 +492,15 @@ if os.path.isdir("/app/frontend/build"):
         index_path = "/app/frontend/build/index.html"
         if os.path.exists(index_path):
             return FileResponse(index_path)
-        return JSONResponse({"error": "index.html not found"}, status_code=404)
+        # HUGGING FACE HEALTH CHECK FIX:
+        # If the React frontend wasn't built correctly or index.html is missing,
+        # we MUST return 200 OK on the root route, otherwise Hugging Face marks
+        # the container as crashed/unhealthy and instantly Pauses it.
+        return JSONResponse({
+            "message": "Browser Automation Studio — Backend Running",
+            "warning": "Frontend not found (index.html missing). Please build the React app.",
+            "version": "5.0.0", "docs": "/docs", "health": "/health",
+        }, status_code=200)
 else:
     @app.get("/", tags=["System"])
     async def root():
