@@ -77,13 +77,13 @@ async def lifespan(app: FastAPI):
                 await ptb_app.start()
                 # We MUST use polling. Webhooks cannot reach Private Hugging Face Spaces
                 # because Telegram's servers cannot bypass the HF private space authentication.
-                print("[Telegram] Deleting any existing webhook...")
+                print("[Telegram] Deleting any existing webhook...", flush=True)
                 await ptb_app.bot.delete_webhook(drop_pending_updates=True)
                 
-                print("[Telegram] Starting polling (Webhooks unsupported on Private Spaces)...")
+                print("[Telegram] Starting polling (Webhooks unsupported on Private Spaces)...", flush=True)
                 await ptb_app.updater.start_polling(drop_pending_updates=True)
             except Exception as e:
-                print(f"[Telegram] Failed to start bot: {e}")
+                print(f"[Telegram] Failed to start bot: {e}", flush=True)
                 
         asyncio.create_task(start_telegram())
 
@@ -418,16 +418,6 @@ async def websocket_monitor(websocket: WebSocket):
 
 # ── Static files / SPA ────────────────────────────────────────
 
-@app.get("/", tags=["System"])
-async def root():
-    if os.path.exists("/app/frontend/build/index.html"):
-        return FileResponse("/app/frontend/build/index.html")
-    return JSONResponse({
-        "message": "Browser Automation Studio — M5",
-        "version": "5.0.0", "docs": "/docs", "health": "/health",
-    })
-
-
 if os.path.exists("/opt/novnc"):
     app.mount("/vnc", StaticFiles(directory="/opt/novnc"), name="novnc")
 
@@ -435,8 +425,25 @@ if os.path.isdir("/app/frontend/build"):
     static_dir = "/app/frontend/build/static"
     if os.path.isdir(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
-    else:
-        print("WARNING: /app/frontend/build/static not found — frontend CSS/JS won't be served")
+    
+    @app.get("/{full_path:path}", tags=["System"])
+    async def serve_spa(full_path: str):
+        # Serve explicit file if it exists (e.g., manifest.json, favicon.ico)
+        file_path = os.path.join("/app/frontend/build", full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        # Fallback to index.html for React Router
+        index_path = "/app/frontend/build/index.html"
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return JSONResponse({"error": "index.html not found"}, status_code=404)
+else:
+    @app.get("/", tags=["System"])
+    async def root():
+        return JSONResponse({
+            "message": "Browser Automation Studio — M5",
+            "version": "5.0.0", "docs": "/docs", "health": "/health",
+        })
 
 
 if __name__ == "__main__":
