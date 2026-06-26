@@ -21,6 +21,9 @@ from dotenv import load_dotenv
 
 from backend.telegram_bot import init_bot
 
+import websockets
+import asyncio
+
 from backend.auth import (
     verify_password, create_access_token,
     verify_token, get_raw_token, blacklist_token
@@ -46,8 +49,8 @@ load_dotenv()
 COOKIES_DIR = os.getenv("COOKIES_DIR", "/data/cookies")
 DATA_DIR    = os.getenv("DATA_DIR",    "/data")
 
-# Initialize Telegram Bot (doesn't start it yet)
-ptb_app = init_bot()
+# Telegram Bot disabled per user request
+ptb_app = None
 
 
 @asynccontextmanager
@@ -433,7 +436,46 @@ async def websocket_monitor(websocket: WebSocket):
 # ── Static files / SPA ────────────────────────────────────────
 
 if os.path.exists("/opt/novnc"):
-    app.mount("/vnc", StaticFiles(directory="/opt/novnc"), name="novnc")
+    app.mount("/vnc", StaticFiles(directory="/opt/novnc", html=True), name="novnc")
+
+@app.websocket("/websockify")
+async def vnc_proxy(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        # Connect to internal websockify
+        async with websockets.connect("ws://127.0.0.1:6080", subprotocols=["binary"]) as backend_ws:
+            async def forward():
+                try:
+                    while True:
+                        data = await backend_ws.recv()
+                        if isinstance(data, bytes):
+                            await websocket.send_bytes(data)
+                        else:
+                            await websocket.send_text(data)
+                except Exception:
+                    pass
+
+            async def reverse():
+                try:
+                    while True:
+                        msg = await websocket.receive()
+                        if "bytes" in msg and msg["bytes"]:
+                            await backend_ws.send(msg["bytes"])
+                        elif "text" in msg and msg["text"]:
+                            await backend_ws.send(msg["text"])
+                        elif msg["type"] == "websocket.disconnect":
+                            break
+                except Exception:
+                    pass
+
+            await asyncio.gather(forward(), reverse())
+    except Exception as e:
+        print(f"[VNC Proxy] Error: {e}")
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 if os.path.isdir("/app/frontend/build"):
     static_dir = "/app/frontend/build/static"

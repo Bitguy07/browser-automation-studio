@@ -9,15 +9,11 @@ export default function NoVNCViewer({ visible }) {
   const [loading, setLoading] = useState(true);
   const iframeRef = useRef(null);
 
-  // Use port 6080 DIRECTLY — websockify listens here.
-  // Extra params:
-  //   show_dot=false      — hides the dot cursor indicator
-  //   bell=false          — disables VNC bell sound
-  //   toolbar=false       — hides noVNC top toolbar (removes "Connected unencrypted" bar)
-  //   resize=scale        — auto-scales Chrome to fit panel
-  //   reconnect=true      — auto-reconnects on disconnect
-  const host = window.location.hostname;
-  const vncUrl = `http://${host}:6080/vnc.html?autoconnect=true&resize=scale&reconnect=true&reconnect_delay=2000&show_dot=false&bell=false&toolbar=false`;
+  // Use the same host/port the React app was loaded from (e.g., localhost:7860 or HF Space URL).
+  // We point to the FastAPI mounted /vnc/vnc.html and tell noVNC to use the /websockify websocket proxy path.
+  const protocol = window.location.protocol;
+  const host = window.location.host;
+  const vncUrl = `${protocol}//${host}/vnc/vnc.html?path=websockify&autoconnect=true&resize=scale&reconnect=true&reconnect_delay=2000&show_dot=false&bell=false&toolbar=false`;
 
   const handleLoad = () => {
     setLoading(false);
