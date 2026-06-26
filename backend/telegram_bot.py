@@ -472,10 +472,14 @@ def main() -> None:
 
     # Step 3: PTB owns the event loop from here — call synchronously, NOT awaited
     log.info("Telegram bot starting (polling). Allowed user ID: %s", ALLOWED_ID)
-    app.run_polling(
-        allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=True,   # skip messages sent while bot was offline
-    )
+    try:
+        app.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,   # skip messages sent while bot was offline
+        )
+    except Exception as e:
+        log.error("Telegram bot crashed during polling: %s", e, exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
