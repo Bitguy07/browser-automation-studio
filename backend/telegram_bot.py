@@ -434,26 +434,18 @@ async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 #     2. Build the Application synchronously.
 #     3. Call app.run_polling() directly (blocking, not awaited).
 
-def main() -> None:
+def init_bot() -> Application | None:
     if not BOT_TOKEN:
-        log.warning("TELEGRAM_BOT_TOKEN is not set. Bot disabled — exiting cleanly.")
-        sys.exit(0)
+        log.warning("TELEGRAM_BOT_TOKEN is not set. Telegram bot disabled.")
+        return None
 
     if ALLOWED_ID == 0:
         log.warning("TELEGRAM_CHAT_ID is not set — ALL users will be denied!")
 
-    # Step 1: obtain JWT (async pre-work) in its own clean event loop
-    log.info("Waiting for FastAPI to be ready before obtaining JWT…")
-    asyncio.run(_get_jwt())
-
-    # Step 2: build the PTB Application synchronously
-    log.info("Building Telegram application…")
+    log.info("Building Telegram application for Webhook/Polling integration…")
     app = (
         Application.builder()
         .token(BOT_TOKEN)
-        .connect_timeout(30)
-        .read_timeout(30)
-        .write_timeout(30)
         .build()
     )
 
@@ -470,17 +462,4 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_error_handler(error_handler)
 
-    # Step 3: PTB owns the event loop from here — call synchronously, NOT awaited
-    log.info("Telegram bot starting (polling). Allowed user ID: %s", ALLOWED_ID)
-    try:
-        app.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True,   # skip messages sent while bot was offline
-        )
-    except Exception as e:
-        log.error("Telegram bot crashed during polling: %s", e, exc_info=True)
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
+    return app

@@ -13,11 +13,14 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
+
+from telegram import Update
+from backend.telegram_bot import init_bot
 
 from backend.auth import (
     verify_password, create_access_token,
@@ -44,6 +47,9 @@ load_dotenv()
 COOKIES_DIR = os.getenv("COOKIES_DIR", "/data/cookies")
 DATA_DIR    = os.getenv("DATA_DIR",    "/data")
 
+# Initialize Telegram Bot (doesn't start it yet)
+ptb_app = init_bot()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -63,6 +69,19 @@ async def lifespan(app: FastAPI):
     init_db()
     asyncio.create_task(ws_heartbeat())
 
+    # Start Telegram Bot
+    if ptb_app:
+        await ptb_app.initialize()
+        await ptb_app.start()
+        space_host = os.getenv("SPACE_HOST")
+        if space_host:
+            webhook_url = f"https://{space_host}/api/telegram/webhook"
+            print(f"[Telegram] Running on Hugging Face. Setting webhook to {webhook_url}")
+            await ptb_app.bot.set_webhook(url=webhook_url)
+        else:
+            print("[Telegram] Running locally. Starting polling...")
+            await ptb_app.updater.start_polling(drop_pending_updates=True)
+
     db = SessionLocal()
     log_event(db, "INFO", "system", "Browser Automation Studio M5 started")
     db.close()
@@ -70,6 +89,13 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     log_event(db, "INFO", "system", "Shutting down")
     db.close()
+
+    if ptb_app:
+        print("[Telegram] Shutting down bot...")
+        if not os.getenv("SPACE_HOST"):
+            await ptb_app.updater.stop()
+        await ptb_app.stop()
+        await ptb_app.shutdown()
 
 
 app = FastAPI(
@@ -92,6 +118,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.post("/api/telegram/webhook")
+async def telegram_webhook(request: Request):
+    """Receive incoming Telegram updates via Webhook."""
+    if not ptb_app:
+        return Response(status_code=503)
+    try:
+        data = await request.json()
+        update = Update.de_json(data=data, bot=ptb_app.bot)
+        await ptb_app.update_queue.put(update)
+        return Response(status_code=200)
+    except Exception as e:
+        print(f"[Telegram] Webhook error: {e}")
+        return Response(status_code=500)
 
 
 # ── System helpers ────────────────────────────────────────────

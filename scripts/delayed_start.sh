@@ -28,12 +28,4 @@ supervisorctl start x11vnc
 sleep 2
 supervisorctl start websockify
 
-# Start Telegram bot (only if token is configured)
-if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ "$TELEGRAM_BOT_TOKEN" != "" ]; then
-    supervisorctl start telegram-bot
-    echo "[delayed_start.sh] Telegram bot started."
-else
-    echo "[delayed_start.sh] TELEGRAM_BOT_TOKEN not set. Skipping Telegram bot."
-fi
-
 echo "[delayed_start.sh] ✓ All services started successfully."
