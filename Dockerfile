@@ -95,7 +95,8 @@ RUN useradd -m -u 1000 -s /bin/bash appuser && \
 ENV OLLAMA_MODELS=/data/ollama
 ENV OLLAMA_HOST=127.0.0.1:11434
 
-USER 1000
+# Removed USER 1000 — we must start as root to fix Hugging Face persistent storage permissions.
+# start.sh will fix /data ownership, then supervisord will drop privileges to appuser.
 
 EXPOSE 7860
 EXPOSE 6080

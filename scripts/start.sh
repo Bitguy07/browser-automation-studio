@@ -19,6 +19,8 @@ fi
 mkdir -p /data/cookies /data/outputs /data/downloads \
          /data/chrome-profile /data/ollama /data/logs \
          /var/log/supervisor
+# Fix permissions (start.sh runs as root now, so this will succeed on the HF volume)
+chown -R appuser:appuser /data 2>/dev/null || true
 chmod -R 777 /data 2>/dev/null || true
 chmod -R 777 /var/log/supervisor 2>/dev/null || true
 
