@@ -69,18 +69,24 @@ async def lifespan(app: FastAPI):
     init_db()
     asyncio.create_task(ws_heartbeat())
 
-    # Start Telegram Bot
+    # Start Telegram Bot in background so it never blocks FastAPI startup
     if ptb_app:
-        await ptb_app.initialize()
-        await ptb_app.start()
-        space_host = os.getenv("SPACE_HOST")
-        if space_host:
-            webhook_url = f"https://{space_host}/api/telegram/webhook"
-            print(f"[Telegram] Running on Hugging Face. Setting webhook to {webhook_url}")
-            await ptb_app.bot.set_webhook(url=webhook_url)
-        else:
-            print("[Telegram] Running locally. Starting polling...")
-            await ptb_app.updater.start_polling(drop_pending_updates=True)
+        async def start_telegram():
+            try:
+                await ptb_app.initialize()
+                await ptb_app.start()
+                space_host = os.getenv("SPACE_HOST")
+                if space_host:
+                    webhook_url = f"https://{space_host}/api/telegram/webhook"
+                    print(f"[Telegram] Running on Hugging Face. Setting webhook to {webhook_url}")
+                    await ptb_app.bot.set_webhook(url=webhook_url)
+                else:
+                    print("[Telegram] Running locally. Starting polling...")
+                    await ptb_app.updater.start_polling(drop_pending_updates=True)
+            except Exception as e:
+                print(f"[Telegram] Failed to start bot: {e}")
+                
+        asyncio.create_task(start_telegram())
 
     db = SessionLocal()
     log_event(db, "INFO", "system", "Browser Automation Studio M5 started")

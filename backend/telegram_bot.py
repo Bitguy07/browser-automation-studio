@@ -446,6 +446,9 @@ def init_bot() -> Application | None:
     app = (
         Application.builder()
         .token(BOT_TOKEN)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .write_timeout(30)
         .build()
     )
 
