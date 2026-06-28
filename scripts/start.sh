@@ -31,7 +31,9 @@ touch /data/logs/fastapi.log /data/logs/fastapi.err \
       /data/logs/ollama.log /data/logs/ollama-pull.log \
       /data/logs/delayed-start.log /data/logs/chromium.log \
       /data/logs/xvfb.log /data/logs/x11vnc.log \
-      /data/logs/websockify.log /data/logs/telegram.log
+      /data/logs/websockify.log /data/logs/telegram.log \
+      /data/logs/hf_fr_agent.log /data/logs/hf_fr_agent.err \
+      /data/logs/hf_flight_recorder_metrics.jsonl /data/logs/hf_fr_heartbeat.jsonl
 
 # Fix ownership (we start as root, HF mounts /data as root)
 chown -R appuser:appuser /data 2>/dev/null || true

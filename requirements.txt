@@ -57,3 +57,6 @@ structlog>=24.1.0
 
 # ── CDP screenshot fallback ───────────────────────────────────
 websocket-client>=1.7.0
+
+# ── HF Flight Recorder Agent ──────────────────────────────────
+psutil>=5.9

@@ -141,6 +141,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from hf_flight_recorder_agent.fastapi_proxy import router as fr_router
+app.include_router(fr_router)
+
 
 
 
